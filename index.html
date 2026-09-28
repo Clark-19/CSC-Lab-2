@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Discrete Structures — Truth Tables & Logic Circuits</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- MathJax Configuration to render LaTeX beautifully, ignoring SVG circuits -->
+<script>
+window.MathJax = {
+    tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+    },
+    options: {
+        ignoreHtmlClass: 'circuit-wrap', // Prevents MathJax from corrupting SVG drawings
+        processHtmlClass: 'math-process'
+    }
+};
+</script>
+<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+<style>
+    :root {
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+    }
+    body { background-color: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; }
+    
+    /* Table Styles */
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 0.75rem; background: #fff; margin-bottom: 1.5rem;}
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th, td { padding: 0.6rem 0.75rem; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums;}
+    th { background: #f1f5f9; font-weight: 700; color: #334155; font-size: 0.95rem;}
+    td { font-family: ui-monospace, monospace; font-size: 0.95rem; }
+    tr:hover td { background: #f8fafc; }
+    tr:last-child td { border-bottom: none; }
+    .final-col { background: #eff6ff; font-weight: 800; color: #1d4ed8; }
+    
+    /* SVG Styles */
+    .circuit-wrap { 
+        overflow-x: auto; 
+        border: 1px solid var(--line); 
+        border-radius: 0.75rem; 
+        background: #ffffff; 
+        padding: 1.5rem;
+        box-shadow: inset 0 2px 4px 0 rgb(0 0 0 / 0.02);
+    }
+    svg { display: block; width: 100%; min-width: 700px; height: auto; }
+</style>
+</head>
+<body class="antialiased">
+
+<header class="bg-slate-900 text-white p-5 shadow-md">
+    <div class="max-w-5xl mx-auto">
+        <h1 class="text-2xl md:text-3xl font-bold mb-2">Discrete Structures — Truth Tables & Logic Circuits</h1>
+        <p class="text-slate-300 text-sm md:text-base">Step-by-step truth tables, clean visual wiring, and detailed logic explanations.</p>
+    </div>
+</header>
+
+<main id="app" class="max-w-5xl mx-auto p-4 md:p-6 space-y-6 mt-2 math-process">
+    <!-- Content injected via JS -->
+</main>
+
+<script>
+// Logic evaluation helpers
+const rows2 = [[1,1], [1,0], [0,1], [0,0]];
+const rows3 = [[1,1,1], [1,1,0], [1,0,1], [1,0,0], [0,1,1], [0,1,0], [0,0,1], [0,0,0]];
+
+const N = x => x ? 0 : 1;
+const OR = (a,b) => (a || b) ? 1 : 0;
+const AND = (a,b) => (a && b) ? 1 : 0;
+const IMP = (a,b) => OR(N(a), b); 
+const IFF = (a,b) => a === b ? 1 : 0;
+
+// SVG generation helpers
+const svgStart = (w, h) => `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">`;
+const svgEnd = `</svg>`;
+
+const pinIn = (x, y, label) =>
+  `<rect x="${x}" y="${y-12}" width="30" height="24" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="2"/>
+   <text x="${x+15}" y="${y+4}" text-anchor="middle" font-size="13" font-weight="bold" fill="#1b5e20">${label}</text>`;
+
+const pinOut = (x, y, label) =>
+  `<rect x="${x}" y="${y-14}" width="75" height="28" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
+   <text x="${x+37.5}" y="${y+4}" text-anchor="middle" font-size="12" font-weight="bold" fill="#e65100">${label}</text>`;
+
+// PERFECTLY CENTERED GATES
+const notGate = (x, y) =>
+  `<path d="M${x} ${y-14} L${x+30} ${y} L${x} ${y+14} Z" fill="#ffebee" stroke="#d32f2f" stroke-width="2"/>
+   <circle cx="${x+35}" cy="${y}" r="5" fill="#fff" stroke="#d32f2f" stroke-width="2"/>
+   <text x="${x+12}" y="${y+3.5}" text-anchor="middle" font-size="9" font-weight="bold" fill="#d32f2f">NOT</text>`;
+
+const andGate = (x, y) =>
+  `<path d="M${x} ${y-16} L${x+15} ${y-16} A 16 16 0 0 1 ${x+15} ${y+16} L${x} ${y+16} Z" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+   <text x="${x+15}" y="${y+3.5}" text-anchor="middle" font-size="9" font-weight="bold" fill="#1976d2">AND</text>`;
+
+const orGate = (x, y) =>
+  `<path d="M${x} ${y-16} Q${x+15} ${y-16} ${x+35} ${y} Q${x+15} ${y+16} ${x} ${y+16} Q${x+10} ${y} ${x} ${y-16} Z" fill="#f3e5f5" stroke="#7b1fa2" stroke-width="2"/>
+   <text x="${x+17}" y="${y+3.5}" text-anchor="middle" font-size="9" font-weight="bold" fill="#7b1fa2">OR</text>`;
+
+const xnorGate = (x, y) =>
+  `<path d="M${x-4} ${y-16} Q${x+6} ${y} ${x-4} ${y+16}" fill="none" stroke="#e65100" stroke-width="2"/>
+   <path d="M${x} ${y-16} Q${x+15} ${y-16} ${x+35} ${y} Q${x+15} ${y+16} ${x} ${y+16} Q${x+10} ${y} ${x} ${y-16} Z" fill="#fff3e0" stroke="#e65100" stroke-width="2"/>
+   <circle cx="${x+40}" cy="${y}" r="5" fill="#fff" stroke="#e65100" stroke-width="2"/>
+   <text x="${x+18}" y="${y+3.5}" text-anchor="middle" font-size="8" font-weight="bold" fill="#e65100">XNOR</text>`;
+
+const wire = (x1, y1, x2, y2, turnX) => {
+    if (turnX === undefined) turnX = x1 + (x2 - x1) / 2;
+    return `<path d="M${x1} ${y1} H${turnX} V${y2} H${x2}" fill="none" stroke="#475569" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+};
+const dot = (x, y) => `<circle cx="${x}" cy="${y}" r="4" fill="#0f172a"/>`;
+
+function createTable(headers, data) {
+    return `<div class="table-wrap math-process">
+        <table>
+            <thead><tr>${headers.map((h, i) => `<th class="${i === headers.length - 1 ? 'final-col' : ''}">${h}</th>`).join('')}</tr></thead>
+            <tbody>
+                ${data.map(row => `<tr>${row.map((val, i) => 
+                    `<td class="${i === row.length - 1 ? 'final-col' : ''}">${val ? 'T' : 'F'}</td>`
+                ).join('')}</tr>`).join('')}
+            </tbody>
+        </table>
+    </div>`;
+}
+
+function createSection(title, formula, note, tableHTML, svgHTML, explanation) {
+    return `
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 md:p-6 math-process">
+        <div class="mb-5">
+            <h2 class="text-xl md:text-2xl font-bold text-slate-800 mb-2">${title}</h2>
+            <div class="inline-block bg-slate-100 text-slate-800 text-sm px-3 py-1.5 rounded-lg border border-slate-200 font-bold tracking-wide">${formula}</div>
+            <p class="text-slate-500 mt-1.5 text-sm">${note}</p>
+        </div>
+        
+        <h3 class="text-base font-bold text-slate-700 mb-3 border-b pb-1.5">1. Step-by-Step Truth Table</h3>
+        ${tableHTML}
+        
+        <h3 class="text-base font-bold text-slate-700 mt-6 mb-3 border-b pb-1.5">2. Logic Circuit Diagram</h3>
+        <div class="circuit-wrap">${svgHTML}</div>
+        
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-4 text-sm text-slate-800 leading-relaxed shadow-sm">
+            <h4 class="font-bold text-blue-900 mb-2 text-base border-b border-blue-200/60 pb-1 flex items-center">
+                <svg class="w-4 h-4 mr-1.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Explanation
+            </h4>
+            ${explanation}
+        </div>
+    </section>`;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Circuit A: (¬p ∨ q) → ¬q                                                  */
+/* -------------------------------------------------------------------------- */
+const dataA = rows2.map(([p,q]) => [p, q, N(p), OR(N(p), q), N(q), IMP(OR(N(p), q), N(q))]);
+
+let svgA = svgStart(500, 140) +
+    pinIn(20, 30, 'p') + pinIn(20, 90, 'q') +
+    notGate(100, 30) + wire(50, 30, 100, 30) +
+    orGate(180, 45) + wire(140, 30, 180, 37, 160) + wire(50, 90, 180, 53, 70) + dot(70, 90) +
+    notGate(260, 45) + wire(215, 45, 260, 45) +
+    notGate(260, 100) + wire(70, 90, 260, 100, 70) +
+    orGate(340, 72) + wire(300, 45, 340, 64, 320) + wire(300, 100, 340, 80, 320) +
+    pinOut(415, 72, 'OUTPUT') + wire(375, 72, 415, 72) +
+    svgEnd;
+
+// Notice: No empty lines or leading whitespace to prevent weird padding on mobile
+const expA = `<ul class="space-y-1.5 list-disc list-outside pl-4 m-0">
+<li><strong>Step-by-step logic:</strong> We slowly build the formula. First we find $\\neg p$. Then we combine it with $q$ to get $(\\neg p \\lor q)$. We also find $\\neg q$. Finally, we apply the implication arrow ($\\rightarrow$) to the two parts.</li>
+<li><strong>Why convert the arrow?</strong> Computer hardware does not have an "Implication Gate." So, mathematically, $A \\rightarrow B$ is exactly equal to $\\neg A \\lor B$.</li>
+<li><strong>Circuit Translation:</strong> To perform $(\\neg p \\lor q) \\rightarrow \\neg q$, we apply the rule above. We wrap a NOT gate around the first half, and an OR gate on the second half, giving us: $\\neg (\\neg p \\lor q) \\lor \\neg q$. That is exactly what you see wired above!</li>
+</ul>`;
+
+/* -------------------------------------------------------------------------- */
+/* Circuit B: ((p ∨ q) ∨ (¬p ∧ q)) → q                                       */
+/* -------------------------------------------------------------------------- */
+const dataB = rows2.map(([p,q]) => [p, q, N(p), OR(p,q), AND(N(p),q), OR(OR(p,q), AND(N(p),q)), IMP(OR(OR(p,q), AND(N(p),q)), q)]);
+
+let svgB = svgStart(550, 160) +
+    pinIn(20, 30, 'p') + pinIn(20, 110, 'q') +
+    wire(50, 30, 70, 30) + dot(70, 30) + wire(70, 30, 140, 32, 70) + 
+    wire(70, 30, 100, 80, 70) + 
+    wire(50, 110, 70, 110) + dot(70, 110) + wire(70, 110, 140, 48, 70) + 
+    wire(70, 110, 90, 110) + dot(90, 110) + wire(90, 110, 160, 98, 90) + 
+    wire(90, 110, 380, 98, 360) + 
+    orGate(140, 40) + 
+    notGate(100, 80) + 
+    andGate(160, 90) + wire(135, 80, 160, 82, 150) + 
+    orGate(240, 65) + wire(175, 40, 240, 57, 210) + wire(191, 90, 240, 73, 210) + 
+    notGate(300, 65) + wire(275, 65, 300, 65) +
+    orGate(380, 90) + wire(335, 65, 380, 82, 360) +
+    pinOut(455, 90, 'OUTPUT') + wire(415, 90, 455, 90) +
+    svgEnd;
+
+const expB = `<ul class="space-y-1.5 list-disc list-outside pl-4 m-0">
+<li><strong>Following the Table:</strong> The columns build up perfectly. We evaluate $(p \\lor q)$, then $(\\neg p \\land q)$, then we OR them together. Finally, we imply $q$.</li>
+<li><strong>Following the Wires:</strong> The black dots on the wires are "splitters". The $q$ line at the bottom splits three times: once up into the first OR gate, once up into the AND gate, and the rest goes all the way right to the final OR gate.</li>
+<li><strong>Implication Rule Again:</strong> Just like the previous circuit, because it ends in $\\rightarrow q$, we must take the entire first half, invert it with a red NOT gate, and then feed it into a purple OR gate with $q$.</li>
+</ul>`;
+
+/* -------------------------------------------------------------------------- */
+/* Circuit C: (p → r) ↔ (q → r)                                              */
+/* -------------------------------------------------------------------------- */
+const dataC = rows3.map(([p,q,r]) => [p, q, r, IMP(p,r), IMP(q,r), IFF(IMP(p,r), IMP(q,r))]);
+
+let svgC = svgStart(500, 190) +
+    pinIn(20, 30, 'p') + pinIn(20, 80, 'q') + pinIn(20, 145, 'r') +
+    notGate(100, 30) + wire(50, 30, 100, 30) +
+    orGate(180, 40) + wire(135, 30, 180, 32, 160) +
+    notGate(100, 80) + wire(50, 80, 100, 80) +
+    orGate(180, 110) + wire(135, 80, 180, 102, 160) +
+    wire(50, 145, 75, 145) + dot(75, 145) +
+    wire(75, 145, 155, 48, 125) +
+    wire(75, 145, 155, 118, 125) +
+    wire(155, 48, 180, 48, 155) +
+    wire(155, 118, 180, 118, 155) +
+    xnorGate(280, 75) + wire(215, 40, 280, 67, 250) + wire(215, 110, 280, 83, 250) +
+    pinOut(375, 75, 'OUTPUT') + wire(325, 75, 375, 75) +
+    svgEnd;
+
+const expC = `<ul class="space-y-1.5 list-disc list-outside pl-4 m-0">
+<li><strong>Step-by-step logic:</strong> We evaluate $p \\rightarrow r$ directly in the table, then evaluate $q \\rightarrow r$, and finally compare them with the double arrow $\\leftrightarrow$.</li>
+<li><strong>The Implication Rule:</strong> Notice the top wires! $p \\rightarrow r$ is mathematically built by passing $p$ into a NOT gate and merging it with $r$ into an OR gate. The same happens for $q \\rightarrow r$.</li>
+<li><strong>The Orange XNOR Gate:</strong> The double arrow $\\leftrightarrow$ means <em>Biconditional</em> ("outputs True only if both sides match"). Unlike implication, real computer hardware <strong>does</strong> have a direct gate for this! It is called the <strong>XNOR Gate</strong> (Exclusive-NOR). This makes the circuit incredibly clean.</li>
+</ul>`;
+
+/* -------------------------------------------------------------------------- */
+/* Circuit D: (p → (q → r)) ↔ ((p ∧ q) → r)                                */
+/* -------------------------------------------------------------------------- */
+const dataD = rows3.map(([p,q,r]) => [p, q, r, IMP(q,r), IMP(p,IMP(q,r)), AND(p,q), IMP(AND(p,q),r), IFF(IMP(p,IMP(q,r)), IMP(AND(p,q),r))]);
+
+let svgD = svgStart(580, 200) +
+    pinIn(20, 30, 'p') + pinIn(20, 90, 'q') + pinIn(20, 150, 'r') +
+    notGate(100, 30) + wire(50, 30, 70, 30) + dot(70, 30) + wire(70, 30, 100, 30) +
+    notGate(100, 75) + wire(50, 90, 80, 90) + dot(80, 90) + wire(80, 90, 100, 75, 80) +
+    orGate(180, 85) + wire(135, 75, 180, 77, 160) + 
+    wire(50, 150, 90, 150) + dot(90, 150) + wire(90, 150, 180, 93, 90) +
+    orGate(260, 50) + wire(135, 30, 260, 42, 230) + wire(215, 85, 260, 58, 230) +
+    andGate(140, 120) + wire(70, 30, 140, 112, 70) + wire(80, 90, 140, 128, 80) +
+    notGate(200, 120) + wire(175, 120, 200, 120) +
+    orGate(280, 135) + wire(235, 120, 280, 127, 260) + wire(90, 150, 280, 143, 90) +
+    xnorGate(380, 92) + wire(295, 50, 380, 84, 340) + wire(315, 135, 380, 100, 340) +
+    pinOut(475, 92, 'OUTPUT') + wire(425, 92, 475, 92) +
+    svgEnd;
+
+const expD = `<ul class="space-y-1.5 list-disc list-outside pl-4 m-0">
+<li><strong>Tautology:</strong> Look at the final column of the truth table. It is entirely "$T$". This means the two formulas inside the $\\leftrightarrow$ are mathematically identical in all scenarios!</li>
+<li><strong>Tracing the Circuit:</strong> The top half calculates the first part of the formula. The bottom half calculates the second part. We feed both of them into the orange <strong>XNOR gate</strong>. Because both halves are always equal, the XNOR gate will <em>always</em> output True.</li>
+</ul>`;
+
+/* -------------------------------------------------------------------------- */
+/* Circuit NEW: (p ∨ ¬r) ∧ (¬p ∨ (q ∨ ¬r))                                   */
+/* -------------------------------------------------------------------------- */
+const dataN = rows3.map(([p,q,r]) => [p, q, r, N(r), OR(p,N(r)), N(p), OR(q,N(r)), OR(N(p),OR(q,N(r))), AND(OR(p,N(r)), OR(N(p),OR(q,N(r))))]);
+
+let svgN = svgStart(580, 190) +
+    pinIn(20, 30, 'p') + pinIn(20, 80, 'q') + pinIn(20, 130, 'r') +
+    notGate(100, 150) + wire(50, 130, 80, 130) + dot(80, 130) + wire(80, 130, 100, 150, 80) +
+    orGate(200, 45) + wire(50, 30, 70, 30) + dot(70, 30) + wire(70, 30, 200, 37, 70) + 
+    wire(135, 150, 170, 150) + dot(170, 150) + wire(170, 150, 200, 53, 170) +
+    orGate(200, 100) + wire(50, 80, 200, 92, 180) + wire(170, 150, 200, 108, 170) +
+    notGate(100, 70) + wire(70, 30, 100, 70, 70) +
+    orGate(280, 85) + wire(135, 70, 280, 77, 250) + wire(235, 100, 280, 93, 250) +
+    andGate(380, 65) + wire(235, 45, 380, 57, 340) + wire(315, 85, 380, 73, 340) +
+    pinOut(460, 65, 'OUTPUT') + wire(411, 65, 460, 65) +
+    svgEnd;
+
+const expN = `<ul class="space-y-1.5 list-disc list-outside pl-4 m-0">
+<li><strong>Step-by-step logic:</strong> We carefully build every single component column by column: $\\neg r$, then $(p \\lor \\neg r)$, then $\\neg p$, then $(q \\lor \\neg r)$, combine them for $(\\neg p \\lor (q \\lor \\neg r))$, and lastly AND them together.</li>
+<li><strong>Direct Translation:</strong> Because this formula only uses standard AND ($\\land$), OR ($\\lor$), and NOT ($\\neg$) symbols, there are no confusing conversions required. What you read is exactly what you get.</li>
+<li><strong>Flow trace:</strong> The big Blue AND gate strictly enforces that both the top OR gate block and the bottom OR gate block must evaluate to True for the final output to be True.</li>
+</ul>`;
+
+const app = document.getElementById('app');
+
+/* ======================== PART 1 ======================== */
+const dataP11 = rows3.map(([p,q,r]) => {
+  const a=IMP(p,IMP(q,r)), b=IMP(IMP(p,q),r);
+  return [p,q,r,IMP(q,r),a,IMP(p,q),b,IFF(a,b)];
+});
+const dataP12a = rows2.map(([p,q]) => {
+  const a=IMP(p,q), b=OR(q,p);
+  return [p,q,a,b,IFF(a,b)];
+});
+const dataP12b = rows3.map(([p,q,r]) => {
+  const a=IMP(AND(p,q),r), np=N(p),nq=N(q),nr=N(r),b=OR(OR(np,nq),nr);
+  return [p,q,r,a,np,nq,nr,b,IFF(a,b)];
+});
+
+const expP11 = `<ul class="space-y-1.5 list-disc list-outside pl-4 m-0">
+<li><strong>Left:</strong> $p \\rightarrow (q \\rightarrow r)$.</li>
+<li><strong>Right:</strong> $(p \\rightarrow q) \\rightarrow r$.</li>
+<li><strong>Result:</strong> <strong>Not logically equivalent.</strong> The final comparison column contains both T and F.</li>
+<li><strong>Counterexample:</strong> $p=F,q=F,r=F$ gives left = T and right = F.</li>
+</ul>`;
+
+const expP12a = `<ul class="space-y-1.5 list-disc list-outside pl-4 m-0">
+<li>Let $p$ = you paid full price; $q$ = you didn't buy it at Crown Books.</li>
+<li>First statement: $p \\rightarrow q$.</li>
+<li>Second statement: $q \\lor p$.</li>
+<li><strong>Result:</strong> <strong>Not logically equivalent.</strong> For $p=F,q=F$, the first is T while the second is F.</li>
+</ul>`;
+
+const expP12b = `<ul class="space-y-1.5 list-disc list-outside pl-4 m-0">
+<li>Let $p$ = 2 is a factor of $n$; $q$ = 3 is a factor of $n$; $r$ = 6 is a factor of $n$.</li>
+<li>First statement: $(p \\land q) \\rightarrow r$.</li>
+<li>Second statement: $\\neg p \\lor \\neg q \\lor \\neg r$.</li>
+<li><strong>Result:</strong> <strong>Not logically equivalent.</strong> For $p=T,q=T,r=T$, the first is T while the second is F.</li>
+</ul>`;
+
+const svgP11 = svgStart(650,210) +
+  pinIn(20,35,'p')+pinIn(20,95,'q')+pinIn(20,165,'r')+
+  notGate(90,35)+wire(50,35,90,35)+
+  notGate(90,95)+wire(50,95,90,95)+
+  orGate(170,110)+wire(125,95,170,102,145)+wire(50,165,170,118,80)+
+  orGate(255,60)+wire(125,35,255,52,210)+wire(205,110,255,68,230)+
+  orGate(170,45)+wire(50,35,170,37,80)+wire(50,95,170,53,80)+
+  notGate(255,45)+wire(205,45,255,45)+
+  orGate(350,75)+wire(300,45,350,67,325)+wire(50,165,350,83,100)+
+  xnorGate(455,95)+wire(290,60,455,87,400)+wire(385,75,455,103,420)+
+  pinOut(550,95,'EQUIV?')+wire(500,95,550,95)+svgEnd;
+
+const svgP12a = svgStart(520,150) +
+  pinIn(20,35,'p')+pinIn(20,105,'q')+
+  notGate(95,35)+wire(50,35,95,35)+
+  orGate(180,70)+wire(130,35,180,62,155)+wire(50,105,180,78,80)+
+  orGate(180,110)+wire(50,105,180,102,80)+wire(50,35,180,118,80)+
+  xnorGate(300,90)+wire(215,70,300,82,255)+wire(215,110,300,98,255)+
+  pinOut(395,90,'EQUIV?')+wire(345,90,395,90)+svgEnd;
+
+const svgP12b = svgStart(650,220) +
+  pinIn(20,35,'p')+pinIn(20,100,'q')+pinIn(20,175,'r')+
+  andGate(115,68)+wire(50,35,115,60,80)+wire(50,100,115,76,80)+
+  notGate(205,68)+wire(165,68,205,68)+
+  orGate(285,105)+wire(240,68,285,97,260)+wire(50,175,285,113,100)+
+  notGate(115,150)+wire(50,35,75,35)+wire(75,35,75,150,75)+
+  notGate(205,150)+wire(50,100,90,100)+wire(90,100,90,150,90)+
+  notGate(285,175)+wire(50,175,285,175)+
+  orGate(385,155)+wire(150,150,385,147,330)+wire(240,150,385,163,330)+
+  orGate(475,115)+wire(320,105,475,107,420)+wire(420,155,475,123,445)+
+  xnorGate(555,75)+wire(335,105,555,67,430)+wire(510,115,555,83,535)+
+  pinOut(650,75,'EQUIV?')+wire(595,75,650,75)+svgEnd;
+
+
+function createTableOnlySection(title, formula, note, tableHTML, explanation) {
+  return `
+  <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 md:p-6 math-process">
+    <div class="mb-5">
+      <h2 class="text-xl md:text-2xl font-bold text-slate-800 mb-2">${title}</h2>
+      <div class="inline-block bg-slate-100 text-slate-800 text-sm px-3 py-1.5 rounded-lg border border-slate-200 font-bold tracking-wide">${formula}</div>
+      <p class="text-slate-500 mt-1.5 text-sm">${note}</p>
+    </div>
+    <h3 class="text-base font-bold text-slate-700 mb-3 border-b pb-1.5">Truth Table Proof</h3>
+    ${tableHTML}
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-4 text-sm text-slate-800 leading-relaxed shadow-sm">
+      <h4 class="font-bold text-blue-900 mb-2 text-base border-b border-blue-200/60 pb-1">Explanation</h4>
+      ${explanation}
+    </div>
+  </section>`;
+}
+
+const part1Html =
+`<div class="bg-slate-100 border border-slate-200 rounded-2xl p-4 md:p-5">
+<h2 class="text-xl md:text-2xl font-bold text-slate-800">Part 1. Logical Equivalence</h2>
+<p class="text-slate-600 text-sm mt-1">Symbolize each pair, compare their truth values, and determine whether they are logically equivalent.</p>
+</div>`+
+createTableOnlySection('Part 1(1)','$p \\rightarrow (q \\rightarrow r)$  vs.  $(p \\rightarrow q) \\rightarrow r$','3 variables, 8 rows.',
+createTable(['$p$','$q$','$r$','$q \\rightarrow r$','$p \\rightarrow (q \\rightarrow r)$','$p \\rightarrow q$','$(p \\rightarrow q) \\rightarrow r$','Equivalent?'],dataP11),expP11)+
+createTableOnlySection('Part 1(2.1)','$p \\rightarrow q$  vs.  $q \\lor p$','2 variables, 4 rows.',
+createTable(['$p$','$q$','$p \\rightarrow q$','$q \\lor p$','Equivalent?'],dataP12a),expP12a)+
+createTableOnlySection('Part 1(2.2)','$(p \\land q) \\rightarrow r$  vs.  $\\neg p \\lor \\neg q \\lor \\neg r$','3 variables, 8 rows.',
+createTable(['$p$','$q$','$r$','$(p \\land q) \\rightarrow r$','$\\neg p$','$\\neg q$','$\\neg r$','$\\neg p \\lor \\neg q \\lor \\neg r$','Equivalent?'],dataP12b),expP12b)+
+`<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-slate-800"><strong class="text-amber-900">Part 1 conclusion:</strong> All three pairs are <strong>not logically equivalent</strong>.</div>`;
+
+app.innerHTML = part1Html +
+
+    createSection('Part 2(a)', '$(\\neg p \\lor q) \\rightarrow \\neg q$', '2 variables, 4 rows.', 
+        createTable(['$p$','$q$','$\\neg p$','$(\\neg p \\lor q)$','$\\neg q$','$(\\neg p \\lor q) \\rightarrow \\neg q$'], dataA), svgA, expA) +
+        
+    createSection('Part 2(b)', '$((p \\lor q) \\lor (\\neg p \\land q)) \\rightarrow q$', '2 variables, 4 rows.', 
+        createTable(['$p$','$q$','$\\neg p$','$p \\lor q$','$\\neg p \\land q$','$(p \\lor q) \\lor (\\neg p \\land q)$','$((p \\lor q) \\lor (\\neg p \\land q)) \\rightarrow q$'], dataB), svgB, expB) +
+        
+    createSection('Part 2(c)', '$(p \\rightarrow r) \\leftrightarrow (q \\rightarrow r)$', '3 variables, 8 rows.', 
+        createTable(['$p$','$q$','$r$','$p \\rightarrow r$','$q \\rightarrow r$','$(p \\rightarrow r) \\leftrightarrow (q \\rightarrow r)$'], dataC), svgC, expC) +
+        
+    createSection('Part 2(d)', '$(p \\rightarrow (q \\rightarrow r)) \\leftrightarrow ((p \\land q) \\rightarrow r)$', '3 variables, 8 rows. (Tautology)', 
+        createTable(['$p$','$q$','$r$','$q \\rightarrow r$','$p \\rightarrow (q \\rightarrow r)$','$p \\land q$','$(p \\land q) \\rightarrow r$','$(p \\rightarrow (q \\rightarrow r)) \\leftrightarrow ((p \\land q) \\rightarrow r)$'], dataD), svgD, expD) +
+        
+    createSection('Added Circuit', '$(p \\lor \\neg r) \\land (\\neg p \\lor (q \\lor \\neg r))$', '3 variables, 8 rows.', 
+        createTable(['$p$','$q$','$r$','$\\neg r$','$p \\lor \\neg r$','$\\neg p$','$q \\lor \\neg r$','$\\neg p \\lor (q \\lor \\neg r)$','$(p \\lor \\neg r) \\land (\\neg p \\lor (q \\lor \\neg r))$'], dataN), svgN, expN);
+
+// Request MathJax to typeset the newly injected HTML
+setTimeout(() => {
+    if(window.MathJax) {
+        MathJax.typesetPromise();
+    }
+}, 150);
+</script>
+</body>
+</html>
